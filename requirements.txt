@@ -1,1 +1,4 @@
-# List of libraries and versions
+numpy
+pandas
+matplotlib
+jupyter
