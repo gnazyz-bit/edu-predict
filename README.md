@@ -1,311 +1,700 @@
+
 # Edu-Predict: Decision Tree Classifier from Scratch
 
-A custom, interpretable **Decision Tree classifier** for predicting student exam outcomes (**Pass** or **Fail**) using the *Students Performance in Exams* dataset. The tree-building and prediction algorithm is implemented **from scratch**, without `scikit-learn`'s `DecisionTreeClassifier`.
+## 1. Project Overview
 
-## Project objective
+Edu-Predict is a machine learning project that implements a Decision Tree classifier from scratch to predict student performance outcomes.
 
-This project demonstrates how a decision tree selects splits using **probability**, **entropy**, and **information gain**, and how its predictions can be evaluated and explained. It also explores Gini impurity and the combinatorics of candidate splits.
+The model predicts whether a student will pass or fail based on demographic information, preparation habits, and exam scores.
 
-> **Interpretation caveat:** The target is calculated directly from the three exam scores. When those scores are used as inputs, the model is learning to approximate a known grading rule, **not** predicting performance before the exams. The five-feature experiment without scores provides a more limited comparison.
+The main goal is to understand the mathematical principles and algorithms behind decision trees without using high-level machine learning classifiers such as scikit-learn.
 
-## Dataset
+### Learning Objectives
 
-Source: [Kaggle — Students Performance in Exams](https://www.kaggle.com/datasets/spscientist/students-performance-in-exams)
+- Understand how Decision Trees work.
+- Apply probability, entropy, and Gini impurity.
+- Calculate information gain to identify optimal splits.
+- Explore combinatorics and computational complexity.
+- Implement recursive tree construction from scratch.
+- Evaluate classification performance.
+- Visualize the trained Decision Tree.
 
-The dataset contains **1,000 student records** and eight original input features:
+---
 
-| Feature | Meaning | Type |
-| --- | --- | --- |
-| `gender` | Student gender | Categorical |
-| `race/ethnicity` | Group classification | Categorical |
-| `parental level of education` | Parent's education level | Categorical |
-| `lunch` | Lunch category | Categorical |
-| `test preparation course` | Test preparation status | Categorical |
-| `math score` | Mathematics exam score | Numerical |
-| `reading score` | Reading exam score | Numerical |
-| `writing score` | Writing exam score | Numerical |
+## 2. Dataset
 
-### Target variable
+The project uses the Students Performance in Exams dataset from Kaggle.
 
-The new target `final_grade` is **1 (Pass)** if the average score is **strictly greater than 60**, otherwise **0 (Fail)**:
+Dataset source:
+https://www.kaggle.com/datasets/spscientist/students-performance-in-exams
+
+The dataset contains 1,000 student records.
+
+### Features
+
+| Feature | Description |
+|---|---|
+| gender | Student gender |
+| race/ethnicity | Student group classification |
+| parental level of education | Highest parental education level |
+| lunch | Standard or free/reduced lunch |
+| test preparation course | Completed or not completed |
+| math score | Mathematics exam score |
+| reading score | Reading exam score |
+| writing score | Writing exam score |
+
+### Target Variable
+
+A new column, `final_grade`, is created based on the average exam score.
+
+- Pass (1): Average score > 60
+- Fail (0): Average score <= 60
 
 ```python
 df["final_grade"] = (
-    (df["math score"] + df["reading score"] + df["writing score"]) / 3 > 60
+    (
+        df["math score"] +
+        df["reading score"] +
+        df["writing score"]
+    ) / 3 > 60
 ).astype(int)
 ```
 
-An average of exactly 60 is **Fail (0)**.
+### Class Distribution
 
-## Data preprocessing
+| Class | Students | Percentage |
+|---|---:|---:|
+| Fail (0) | 293 | 29.3% |
+| Pass (1) | 707 | 70.7% |
+| Total | 1000 | 100% |
 
-1. Load `data/StudentsPerformance.csv` with Pandas.
-2. Create the target `final_grade`.
-3. Split into **80% training / 20% test**, with `random_state=42` (**800 / 200 records**).
-4. Map each categorical feature to integer codes; derive category mappings from the training partition to avoid fitting preprocessing on the test partition.
-5. Compare two feature configurations:
-   - **5 features:** the five categorical background/preparation features.
-   - **8 features:** the same five features plus math, reading, and writing scores.
+The dataset is moderately imbalanced, with more students passing than failing.
 
-**Categorical-variable limitation:** The current implementation converts categories to integer labels and searches numerical `<=` thresholds across them. This works computationally, but it imposes an artificial order on nominal categories (e.g., `race/ethnicity`). A dedicated categorical subset split would be a meaningful future improvement.
+---
 
-## Mathematical background
+## 3. Data Preprocessing
 
-### Probability
+The preprocessing pipeline includes:
 
-For class \(c\) in a node with \(n\) samples, its empirical probability is:
+1. Loading the dataset using Pandas.
+2. Checking the dataset structure.
+3. Creating the target variable `final_grade`.
+4. Splitting the dataset into training and testing sets.
+5. Encoding categorical variables as integers.
+6. Preparing numerical features for model training.
 
-\[
-p(c) = \frac{\text{number of samples of class }c}{n}
-\]
+### Train/Test Split
 
-### Entropy
+- Training set: 80% (800 students)
+- Testing set: 20% (200 students)
+- Random state: 42
 
-Entropy measures class uncertainty:
+Categorical encoding mappings are derived from the training data to avoid test-set leakage.
 
-\[
-H(S) = -\sum_c p(c)\log_2 p(c)
-\]
+### Feature Sets
 
-Terms with \(p(c)=0\) contribute zero. Entropy is **0** for a pure node and **1** for an evenly split binary node.
+Two feature configurations are compared.
 
-### Gini impurity
+**Model 1: Five features**
 
-Gini measures class mixture in another way:
+- gender
+- race/ethnicity
+- parental level of education
+- lunch
+- test preparation course
 
-\[
-Gini(S) = 1 - \sum_c p(c)^2
-\]
+**Model 2: Eight features**
 
-For two balanced classes, Gini is **0.5**. The project implements Gini for comparison, while **entropy-based information gain** is the actual split criterion.
+The same five features plus:
 
-### Information gain
+- math score
+- reading score
+- writing score
 
-For a split into child partitions \(S_v\):
+The eight-feature model is the main model used for evaluation and visualization.
 
-\[
-IG(S,A) = H(S) - \sum_v \frac{|S_v|}{|S|}H(S_v)
-\]
+Note: The target variable is calculated directly from the three exam scores. Therefore, the eight-feature model learns to approximate an existing grading rule rather than predicting performance before exams.
 
-The algorithm chooses the candidate split with the **largest positive information gain**.
+---
 
-## Combinatorics and computational complexity
+## 4. Mathematical Background
 
-At a node with **\(d\)** input features, the implementation considers up to **\(d\) features** (here, **8** in the full model). A feature with **\(u_j\)** distinct observed values supplies up to **\(u_j - 1\)** candidate thresholds: the midpoints between sorted, consecutive unique values.
+### 4.1 Probability
 
-Therefore, the maximum number of threshold candidates inspected at a node is:
+Probability measures how frequently a particular class occurs within a dataset or tree node.
 
-\[
-T = \sum_{j=1}^{d}\max(u_j-1,0)
-\]
+Formula:
 
-For example, 10 distinct values in one feature give **9** candidate thresholds.
+`p(c) = number_of_samples_in_class_c / total_samples`
 
-A separate combinatorics observation: selecting any nonempty subset from \(d\) features gives \(2^d-1\) possible subsets (255 for 8 features). **This implementation does not enumerate these feature subsets**; it tests one feature and one threshold at a time.
+For example, if 70 out of 100 students pass:
 
-With **\(n\)** rows at a node, checking a threshold requires scanning and splitting the rows, giving approximately **\(O(nT)\)** split-search work (plus costs such as sorting unique values). Since \(T\le d(n-1)\), a simple worst-case bound is approximately **\(O(dn^2)\) per node** for this unoptimized implementation. Total training cost depends on the number and sizes of nodes. `max_depth` and `min_samples_split` limit tree growth.
+`P(Pass) = 70 / 100 = 0.70`
 
-## Custom Decision Tree implementation
+### 4.2 Entropy
 
-The model is defined in `model/decision_tree.py` and includes:
+Entropy measures uncertainty or impurity in a dataset.
 
-- A `Node` data class storing `prediction`, `feature_index`, `threshold`, `left`, and `right`.
-- Exhaustive candidate threshold search and entropy-based information gain.
+Formula:
+
+`H(S) = -sum(p(c) * log2(p(c)))`
+
+Where:
+
+- S is the dataset or node.
+- c represents a class.
+- p(c) is the probability of class c.
+- log2 is the base-2 logarithm.
+
+Interpretation:
+
+- Entropy = 0: All samples belong to one class.
+- Entropy = 1: Two classes are equally distributed.
+- Higher entropy indicates greater uncertainty.
+
+Terms with probability zero contribute zero to the entropy.
+
+### 4.3 Gini Impurity
+
+Gini impurity is another measure of class impurity.
+
+Formula:
+
+`Gini(S) = 1 - sum(p(c)^2)`
+
+Interpretation:
+
+- Gini = 0: Pure node.
+- Gini = 0.5: Maximum impurity for two equally distributed classes.
+
+The project implements Gini impurity for mathematical analysis.
+
+However, the Decision Tree uses entropy-based information gain as its splitting criterion.
+
+### 4.4 Information Gain
+
+Information Gain measures how much a split reduces uncertainty.
+
+Formula:
+
+`IG(S, A) = H(S) - sum((size(S_v) / size(S)) * H(S_v))`
+
+Where:
+
+- S is the parent dataset.
+- A is the candidate splitting feature.
+- S_v represents a child subset.
+- H(S) is the parent entropy.
+- H(S_v) is the child entropy.
+
+The algorithm selects the split with the highest positive information gain.
+
+---
+
+## 5. Combinatorics and Split Complexity
+
+Combinatorics helps explain how many possible splitting decisions the algorithm may evaluate.
+
+### Number of Features
+
+For a dataset containing d features, the algorithm considers up to d features at each node.
+
+In this project:
+
+`d = 8`
+
+Therefore, the main model considers eight features when searching for the best split.
+
+The number of ways to choose k features from d available features is:
+
+`C(d, k) = d! / (k! * (d-k)!)`
+
+For example:
+
+`C(8, 2) = 28`
+
+There are 28 possible unordered pairs of features.
+
+However, the implemented Decision Tree selects one splitting feature at a time rather than evaluating feature pairs.
+
+### Numerical Thresholds
+
+For a numerical feature containing u unique sorted values, there are at most:
+
+`u - 1`
+
+candidate threshold positions between consecutive values.
+
+For example:
+
+- Unique values: 10
+- Possible thresholds: 9
+
+The implementation searches for informative thresholds and selects the candidate producing the largest information gain.
+
+### Computational Complexity
+
+Let:
+
+- d = number of features
+- n = number of samples in a node
+- t = number of candidate thresholds per feature
+
+If each candidate is evaluated by scanning all samples, the approximate cost of finding the best split is:
+
+`O(d * t * n)`
+
+When the number of thresholds grows proportionally to n, this can approach:
+
+`O(d * n^2)`
+
+per node.
+
+The overall training cost depends on the number and sizes of nodes created during recursive tree construction.
+
+Maximum depth and minimum sample requirements help control tree growth.
+
+---
+
+## 6. Decision Tree Implementation
+
+The Decision Tree classifier is implemented from scratch in:
+
+`model/decision_tree.py`
+
+The implementation includes:
+
+- A custom Node class.
+- Entropy-based information gain.
 - Recursive tree construction.
-- Stopping conditions: pure labels, maximum depth, minimum samples, or no positive information gain.
-- `fit()`, `predict()`, and a text display of the decision rules.
+- Searching for the best feature and threshold.
+- Numerical threshold-based splitting.
+- Support for numerically encoded categorical features.
+- Prediction using tree traversal.
+- Text-based tree visualization.
 
-The experiments use:
+### Node Structure
+
+Each node stores:
+
+- prediction
+- feature_index
+- threshold
+- left
+- right
+
+### Stopping Criteria
+
+Tree construction stops when:
+
+1. The node is pure.
+2. Maximum tree depth is reached.
+3. The node contains fewer samples than `min_samples_split`.
+4. No useful split can be found.
+
+### Model Configuration
+
+The primary model uses:
 
 ```python
-DecisionTree(max_depth=5, min_samples_split=2)
+tree_full = DecisionTree(
+    max_depth=5,
+    min_samples_split=2
+)
 ```
 
-The root of the eight-feature tree splits on **`reading score <= 61.5`**. All leaf predictions are **0 (Fail)** or **1 (Pass)**.
+The model is trained using 800 student records and evaluated on 200 test records.
 
-## Evaluation results
+### Categorical Features
 
-Test set: **200 students**.
+Categorical variables are converted to integer codes before training.
 
-| Method | Test accuracy | Correct predictions |
-| --- | ---: | ---: |
-| Custom Decision Tree — 5 features | 67.50% | 135 / 200 |
-| Custom Decision Tree — 8 features | **97.50%** | **195 / 200** |
-| Majority-class dummy baseline | 71.00% | 142 / 200 |
+The current implementation applies numerical threshold comparisons to these encoded values.
 
-The majority-class baseline always predicts the most frequent class observed in the **training set**.
+This is a limitation because integer codes may introduce an artificial ordering between nominal categories.
 
-### Confusion matrix — eight-feature model
+---
 
-Rows represent actual classes; columns represent predicted classes.
+## 7. Model Evaluation
 
-| | Predicted Fail (0) | Predicted Pass (1) |
-| --- | ---: | ---: |
-| **Actual Fail (0)** | **56** (TN) | **2** (FP) |
-| **Actual Pass (1)** | **3** (FN) | **139** (TP) |
+### Accuracy Comparison
 
-- **True negatives:** 56
-- **False positives:** 2
-- **False negatives:** 3
-- **True positives:** 139
-- **Total errors:** 5
+| Model | Test Accuracy |
+|---|---:|
+| Decision Tree - 5 features | 67.50% |
+| Decision Tree - 8 features | 97.50% |
+| Dummy Baseline | 71.00% |
+| Decision Tree - 2D | 95.50% |
 
-The eight-feature tree exceeds the project's suggested **75% accuracy** target, but this result must be interpreted in light of the target's dependence on exam-score inputs.
+The eight-feature Decision Tree correctly classified 195 out of 200 test records.
 
-## Additional analyses and saved results
+The dummy baseline always predicts the most frequent class observed in the training set.
 
-The notebook generates plots and exports summary files to `results/`. The figures below are relative links, so they also work when the repository is viewed on another computer or in Gitea.
+### Confusion Matrix
 
-### 1. Decision tree visualization — `tree_visualization.png`
+Results for the eight-feature Decision Tree with maximum depth 5:
 
-![Custom Decision Tree](results/tree_visualization.png)
+| Actual / Predicted | Fail (0) | Pass (1) |
+|---|---:|---:|
+| Fail (0) | 56 | 2 |
+| Pass (1) | 3 | 139 |
 
-The diagram shows the learned split conditions and predicted classes. Blue nodes contain questions; green leaves predict **Pass (1)** and pink leaves predict **Fail (0)**. Branch labels **Yes** and **No** indicate whether the condition holds. The root condition of the eight-feature tree is **`reading score <= 61.5`**.
+### Interpretation
 
-### 2. Confusion matrix — `confusion_matrix.png`
+- True Negative (TN): 56
+- False Positive (FP): 2
+- False Negative (FN): 3
+- True Positive (TP): 139
+
+Total correct predictions:
+
+`56 + 139 = 195`
+
+Total incorrect predictions:
+
+`2 + 3 = 5`
+
+Accuracy:
+
+`Accuracy = 195 / 200 = 0.975 = 97.50%`
+
+The model substantially outperforms the majority-class baseline when exam scores are included.
+
+---
+
+## 8. Tree Depth Comparison
+
+The project evaluates Decision Trees with maximum depths from 1 to 10.
+
+| Max Depth | Train Accuracy | Test Accuracy |
+|---|---:|---:|
+| 1 | 94.75% | 93.00% |
+| 2 | 95.50% | 96.00% |
+| 3 | 98.88% | 97.50% |
+| 4 | 99.50% | 98.00% |
+| 5 | 100.00% | 97.50% |
+| 6 | 100.00% | 97.50% |
+| 7 | 100.00% | 97.50% |
+| 8 | 100.00% | 97.50% |
+| 9 | 100.00% | 97.50% |
+| 10 | 100.00% | 97.50% |
+
+### Findings
+
+The highest observed test accuracy is:
+
+`98.00% at max_depth = 4`
+
+At depth 5, training accuracy reaches 100%, while test accuracy decreases slightly to 97.50%.
+
+This suggests that deeper trees do not necessarily improve generalization.
+
+The depth comparison is an exploratory experiment. Selecting an optimal depth for final evaluation should ideally use a validation set or cross-validation within the training data.
+
+---
+
+## 9. Results and Visualizations
+
+All generated results are stored in the `results/` directory.
+
+### 9.1 Tree Visualization
+
+File: `results/tree_visualization.png`
+
+Displays the complete structure of the trained Decision Tree, including:
+
+- Splitting features.
+- Threshold values.
+- Left and right branches.
+- Final Pass/Fail predictions.
+
+![Decision Tree Visualization](results/tree_visualization.png)
+
+### 9.2 Confusion Matrix
+
+File: `results/confusion_matrix.png`
+
+Visualizes correct and incorrect predictions for both classes.
 
 ![Confusion Matrix](results/confusion_matrix.png)
 
-Displays the **56 true negatives**, **2 false positives**, **3 false negatives**, and **139 true positives** from the eight-feature model (depth 5), for **195 correct predictions out of 200**.
+### 9.3 Class Distribution
 
-### 3. Class distribution — `class_distribution.png`
+File: `results/class_distribution.png`
+
+Shows the distribution of Pass and Fail outcomes in the dataset.
 
 ![Class Distribution](results/class_distribution.png)
 
-Shows the target distribution across all 1,000 records: **293 Fail (29.3%)** and **707 Pass (70.7%)**. Because Pass is more common, accuracy should be compared against a majority-class baseline.
+### 9.4 Tree Depth Comparison
 
-### 4. Tree depth comparison — `depth_comparison.png`
+File: `results/depth_comparison.png`
 
-![Accuracy by Maximum Tree Depth](results/depth_comparison.png)
+Compares training and testing accuracy across maximum tree depths from 1 to 10.
 
-Compares **training and test accuracy** for maximum tree depths **1–10**. In the reported experiment, the highest observed test accuracy was **98.0% at depth 4** (196/200 correct), while the primary depth-5 tree achieved **97.5%** (195/200 correct). Deeper trees reached 100% training accuracy without increasing test accuracy. This is an exploratory comparison on the test set, **not a validated hyperparameter selection**; in a stricter workflow, choose depth using a separate validation set or cross-validation on training data and reserve the test set for the final report.
+![Tree Depth Comparison](results/depth_comparison.png)
 
-### 5. Two-dimensional decision boundary — `decision_boundary_2d.png`
+### 9.5 Decision Boundary 2D
 
-![2D Decision Boundary](results/decision_boundary_2d.png)
+File: `results/decision_boundary_2d.png`
 
-An **independently trained** depth-4 tree uses only `math score` and `reading score` to show predicted Pass/Fail regions on a two-dimensional grid. Its test accuracy was **95.5%**, and should not be confused with the eight-feature model's 97.5% accuracy. The region plot shows the two-feature model's predictions, while the overlaid points represent actual test labels.
+Displays classification regions using two numerical features:
 
-### 6. Machine-readable metrics — `metrics.json`
+- Math score
+- Reading score
 
-Stores accuracy values, the selected best depth from the exploratory depth comparison, the four confusion-matrix counts, and the Pass/Fail class distribution. Values are stored as fractions (for example, `0.975` means **97.5%**). Useful for programmatic inspection without rerunning the analysis.
+A separate Decision Tree is trained using only these two features.
 
-### 7. Text decision rules — `tree_structure.txt`
+Test accuracy:
 
-A human-readable, indented export of the depth-5 tree's `if/else` conditions and leaf predictions. It provides a text alternative to the graphical visualization.
+`95.50%`
 
-## Project structure
+![Decision Boundary 2D](results/decision_boundary_2d.png)
+
+### 9.6 Metrics JSON
+
+File: `results/metrics.json`
+
+Stores evaluation results in a structured format, including:
+
+- Accuracy values.
+- Baseline accuracy.
+- Best observed depth.
+- Confusion matrix values.
+- Class distribution.
+
+### 9.7 Tree Structure TXT
+
+File: `results/tree_structure.txt`
+
+Contains a text representation of the Decision Tree rules.
+
+Example:
+
+```text
+if reading score <= 61.500:
+  if math score <= 60.500:
+    if writing score <= 65.500:
+      Predict class = 0
+```
+
+This format makes model predictions easier to interpret without opening the graphical visualization.
+
+---
+
+## 10. Project Structure
 
 ```text
 edu-predict/
-├── data/
-│   └── StudentsPerformance.csv
-├── model/
-│   └── decision_tree.py
-├── notebook/
-│   └── analysis.ipynb
-├── utils/
-│   └── metrics.py
-├── results/
-│   ├── tree_visualization.png
-│   ├── confusion_matrix.png
-│   ├── class_distribution.png
-│   ├── depth_comparison.png
-│   ├── decision_boundary_2d.png
-│   ├── metrics.json
-│   └── tree_structure.txt
-├── README.md
-├── requirements.txt
-└── .gitignore
+|
+|-- data/
+|   |-- StudentsPerformance.csv
+|
+|-- model/
+|   |-- decision_tree.py
+|
+|-- notebook/
+|   |-- analysis.ipynb
+|
+|-- utils/
+|   |-- metrics.py
+|
+|-- results/
+|   |-- class_distribution.png
+|   |-- confusion_matrix.png
+|   |-- decision_boundary_2d.png
+|   |-- depth_comparison.png
+|   |-- metrics.json
+|   |-- tree_structure.txt
+|   |-- tree_visualization.png
+|
+|-- README.md
+|-- requirements.txt
+|-- .gitignore
 ```
 
-## How to run the project
+---
+
+## 11. How to Run the Project
 
 ### Prerequisites
 
-- **Python 3.11+** (a recent, supported version; the project was run with Python 3.14.7).
-- **Git** to clone the repository, and **VS Code** with the Python and Jupyter extensions (recommended).
-- The dataset file `data/StudentsPerformance.csv` included in the repository.
+Make sure the following tools are installed:
 
-### Step 1 — Get the project
+- Python 3.11 or newer
+- Git
+- Visual Studio Code (recommended)
+- Python extension for VS Code
+- Jupyter extension for VS Code
 
-Clone your own repository from Tomorrow School Gitea, or download and extract the project ZIP. In a terminal, navigate to the **`edu-predict` project folder**, where `requirements.txt` is located.
+The project was developed using Python 3.14.7.
+
+### Step 1. Clone the Repository
+
+Clone the project from Tomorrow School Gitea:
 
 ```bash
-cd path/to/edu-predict
+git clone https://01.tomorrow-school.ai/git/aongalba/edu-predict.git
 ```
 
-Replace `path/to/edu-predict` with your actual folder location; **do not use `/Users/Guest/...` on another computer**.
+Navigate into the project folder:
 
-### Step 2 — Create and activate a virtual environment
+```bash
+cd edu-predict
+```
 
-**macOS / Linux:**
+Alternatively, download the repository as a ZIP file and extract it.
+
+### Step 2. Create a Virtual Environment
+
+On macOS or Linux:
 
 ```bash
 python3 -m venv .venv
+```
+
+Activate:
+
+```bash
 source .venv/bin/activate
 ```
 
-**Windows (PowerShell):**
+On Windows:
 
 ```powershell
-py -m venv .venv
+python -m venv .venv
+```
+
+Activate in PowerShell:
+
+```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-### Step 3 — Install requirements and Jupyter kernel
+### Step 3. Install Dependencies
+
+Run:
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python -m pip install ipykernel
 ```
 
-If `ipykernel` is already listed in `requirements.txt`, the last command is unnecessary. It is included separately here so the setup works with earlier copies of the repository as well.
+The project uses:
 
-### Step 4 — Open and run the notebook
+- NumPy
+- Pandas
+- Matplotlib
+- Jupyter
+- ipykernel
 
-1. Open the **whole `edu-predict` folder** in VS Code.
-2. Open `notebook/analysis.ipynb`.
-3. Click **Select Kernel** and choose the Python interpreter inside `.venv`.
-4. **Important for the current notebook:** it loads data with `../data/StudentsPerformance.csv`. The notebook therefore needs its **current working directory to be `edu-predict/notebook`**. If it instead starts in the repository root, that relative path will fail. You can check with `Path.cwd()` in a notebook cell. If needed, change the working directory to the notebook folder *before* running all cells, or update the load path to use the project root.
-5. Choose **Restart Kernel → Run All** and run the cells **in order**, including the added model-training, evaluation, and plot-export cells.
-6. Verify the printed metrics and open the generated images in `results/`.
+No scikit-learn DecisionTreeClassifier is used.
 
-> **Portability note:** The export cells create output paths using `Path.cwd()` and, when the working directory is called `notebook`, its parent directory. They do **not** hard-code the Mac username or absolute path. Run from the project root or the `notebook` folder for outputs to go into the expected `results/` directory. The input CSV path described above is more restrictive and requires special attention. 
+### Step 4. Open the Project in VS Code
 
-### Step 5 — Confirm expected results
+Open the project folder:
 
-When using the same dataset, preprocessing, random split, and model parameters, the reference run produced:
+`edu-predict/`
 
-```text
-Decision Tree (5 features): 67.50%
-Decision Tree (8 features): 97.50%
-Dummy Baseline: 71.00%
-2D Decision Tree Accuracy: 95.50%
-Best test accuracy in depth comparison: 98.00% at depth 4
-```
+Then open:
 
-The actual run will also display the confusion matrix, class counts, and diagrams. If you downloaded a repository copy that already includes `results/`, you can view the exported artifacts without rerunning the notebook; running it will regenerate or overwrite them.
+`notebook/analysis.ipynb`
 
-### Troubleshooting
+### Step 5. Select the Python Kernel
 
-- **`ModuleNotFoundError`**: verify that `.venv` is selected and dependencies are installed; check the project module import path for `model.decision_tree` and `utils.metrics`.
-- **`FileNotFoundError` for `../data/StudentsPerformance.csv`**: check the notebook working directory (Step 4).
-- **`NameError` for `X_train_full`, `DecisionTree`, etc.**: restart the kernel and run notebook cells from top to bottom.
-- **No plots in `results/`**: ensure all export cells have executed and the current directory is the project root or `notebook/`.
+In the top-right corner of the Notebook:
 
-## Conclusions
+1. Click Select Kernel.
+2. Choose Python Environments.
+3. Select the Python interpreter from `.venv`.
+4. Make sure the kernel starts successfully.
 
-- The classifier was implemented from scratch, using entropy-based information gain rather than a ready-made decision-tree estimator.
-- Adding exam scores increased test accuracy from **67.50%** to **97.50%**, exceeding the **71.00%** dummy baseline.
-- The tree can be explained through explicit decision thresholds and leaf predictions.
-- The experiment demonstrates both the value of informative features and the risk of treating a constructed target as an independent future outcome.
+### Step 6. Run the Notebook
 
-## Potential improvements
+Run all cells from top to bottom using:
 
-- Handle nominal categories via explicit equality or subset-based categorical splits.
-- Compare different maximum tree depths on a validation split.
-- Extend the two-feature decision-boundary experiment with additional projections.
-- Add reusable tests for entropy, information gain, and tree prediction.
-- Evaluate genuine early-risk prediction using only information available **before** final exam scores are known.
+`Run All`
+
+The Notebook performs the following operations:
+
+1. Loads the dataset.
+2. Creates the target variable.
+3. Preprocesses the features.
+4. Splits the data into training and testing sets.
+5. Computes entropy, Gini impurity, and information gain.
+6. Trains the custom Decision Tree.
+7. Generates predictions.
+8. Evaluates model accuracy.
+9. Computes the confusion matrix.
+10. Compares the model with a dummy baseline.
+11. Visualizes the tree.
+12. Creates additional evaluation plots.
+13. Exports generated results.
+
+### Step 7. Check the Results
+
+After successful execution, open:
+
+`results/`
+
+The generated PNG, JSON, and TXT files can be inspected directly.
+
+### Working Directory Notes
+
+The Notebook uses paths relative to the project working directory.
+
+For reliable execution:
+
+- Open the complete repository rather than the Notebook alone.
+- Run Jupyter from the project root or the `notebook` directory.
+- Keep the original folder structure unchanged.
+- Run all cells sequentially.
+
+Generated result paths depend on the location of the project on the current computer.
+
+For example, the same project can be stored under different user directories on macOS, Linux, or Windows.
+
+No fixed personal directory is required for the result-export code when the Notebook is launched from the expected project location.
+
+---
+
+## 12. Limitations
+
+The following limitations should be considered:
+
+1. The main target is calculated from the same exam scores included in the eight-feature model.
+
+2. Therefore, the model is primarily a demonstration of Decision Tree learning rather than a real early-warning prediction system.
+
+3. Label-encoded categorical features are split using numerical thresholds, which may impose arbitrary ordering.
+
+4. A single train/test split does not fully establish model generalization.
+
+5. Hyperparameter selection should ideally use a separate validation process.
+
+6. Demographic variables should be interpreted carefully and should not be used to make unfair decisions about students.
+
+---
+
+## 13. Conclusion
+
+This project demonstrates the implementation of a Decision Tree classifier from scratch using fundamental machine learning concepts.
+
+The project covers:
+
+- Probability
+- Entropy
+- Gini impurity
+- Information Gain
+- Combinatorics
+- Recursive decision making
+- Model evaluation
+- Tree visualization
+
+The eight-feature Decision Tree achieved 97.50% accuracy on the test dataset.
+
+The best observed accuracy in the depth comparison was 98.00% at maximum depth 4.
+
+The results demonstrate how decision trees learn classification rules from data and how feature selection and tree depth influence prediction performance.
+
+The project also highlights the importance of model interpretability, careful evaluation, and understanding the limitations of predictive modeling.
