@@ -152,13 +152,47 @@ Rows represent actual classes; columns represent predicted classes.
 
 The eight-feature tree exceeds the project's suggested **75% accuracy** target, but this result must be interpreted in light of the target's dependence on exam-score inputs.
 
-## Tree visualization
+## Additional analyses and saved results
 
-The notebook prints the tree's decision rules and exports a graphical representation to:
+The notebook generates plots and exports summary files to `results/`. The figures below are relative links, so they also work when the repository is viewed on another computer or in Gitea.
+
+### 1. Decision tree visualization — `tree_visualization.png`
 
 ![Custom Decision Tree](results/tree_visualization.png)
 
-Blue nodes show split conditions; green leaves represent **Pass** and pink leaves represent **Fail**. Branch labels **Yes** and **No** correspond to the threshold condition being true or false.
+The diagram shows the learned split conditions and predicted classes. Blue nodes contain questions; green leaves predict **Pass (1)** and pink leaves predict **Fail (0)**. Branch labels **Yes** and **No** indicate whether the condition holds. The root condition of the eight-feature tree is **`reading score <= 61.5`**.
+
+### 2. Confusion matrix — `confusion_matrix.png`
+
+![Confusion Matrix](results/confusion_matrix.png)
+
+Displays the **56 true negatives**, **2 false positives**, **3 false negatives**, and **139 true positives** from the eight-feature model (depth 5), for **195 correct predictions out of 200**.
+
+### 3. Class distribution — `class_distribution.png`
+
+![Class Distribution](results/class_distribution.png)
+
+Shows the target distribution across all 1,000 records: **293 Fail (29.3%)** and **707 Pass (70.7%)**. Because Pass is more common, accuracy should be compared against a majority-class baseline.
+
+### 4. Tree depth comparison — `depth_comparison.png`
+
+![Accuracy by Maximum Tree Depth](results/depth_comparison.png)
+
+Compares **training and test accuracy** for maximum tree depths **1–10**. In the reported experiment, the highest observed test accuracy was **98.0% at depth 4** (196/200 correct), while the primary depth-5 tree achieved **97.5%** (195/200 correct). Deeper trees reached 100% training accuracy without increasing test accuracy. This is an exploratory comparison on the test set, **not a validated hyperparameter selection**; in a stricter workflow, choose depth using a separate validation set or cross-validation on training data and reserve the test set for the final report.
+
+### 5. Two-dimensional decision boundary — `decision_boundary_2d.png`
+
+![2D Decision Boundary](results/decision_boundary_2d.png)
+
+An **independently trained** depth-4 tree uses only `math score` and `reading score` to show predicted Pass/Fail regions on a two-dimensional grid. Its test accuracy was **95.5%**, and should not be confused with the eight-feature model's 97.5% accuracy. The region plot shows the two-feature model's predictions, while the overlaid points represent actual test labels.
+
+### 6. Machine-readable metrics — `metrics.json`
+
+Stores accuracy values, the selected best depth from the exploratory depth comparison, the four confusion-matrix counts, and the Pass/Fail class distribution. Values are stored as fractions (for example, `0.975` means **97.5%**). Useful for programmatic inspection without rerunning the analysis.
+
+### 7. Text decision rules — `tree_structure.txt`
+
+A human-readable, indented export of the depth-5 tree's `if/else` conditions and leaf predictions. It provides a text alternative to the graphical visualization.
 
 ## Project structure
 
@@ -173,30 +207,93 @@ edu-predict/
 ├── utils/
 │   └── metrics.py
 ├── results/
-│   └── tree_visualization.png
+│   ├── tree_visualization.png
+│   ├── confusion_matrix.png
+│   ├── class_distribution.png
+│   ├── depth_comparison.png
+│   ├── decision_boundary_2d.png
+│   ├── metrics.json
+│   └── tree_structure.txt
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+└── .gitignore
 ```
 
-## Setup and usage
+## How to run the project
 
-Use a compatible Python 3 environment and run commands from the **project root**:
+### Prerequisites
+
+- **Python 3.11+** (a recent, supported version; the project was run with Python 3.14.7).
+- **Git** to clone the repository, and **VS Code** with the Python and Jupyter extensions (recommended).
+- The dataset file `data/StudentsPerformance.csv` included in the repository.
+
+### Step 1 — Get the project
+
+Clone your own repository from Tomorrow School Gitea, or download and extract the project ZIP. In a terminal, navigate to the **`edu-predict` project folder**, where `requirements.txt` is located.
+
+```bash
+cd path/to/edu-predict
+```
+
+Replace `path/to/edu-predict` with your actual folder location; **do not use `/Users/Guest/...` on another computer**.
+
+### Step 2 — Create and activate a virtual environment
+
+**macOS / Linux:**
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate        # macOS / Linux
-python -m pip install -r requirements.txt ipykernel
+source .venv/bin/activate
 ```
 
-In VS Code:
+**Windows (PowerShell):**
 
-1. Open the `edu-predict` folder.
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### Step 3 — Install requirements and Jupyter kernel
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install ipykernel
+```
+
+If `ipykernel` is already listed in `requirements.txt`, the last command is unnecessary. It is included separately here so the setup works with earlier copies of the repository as well.
+
+### Step 4 — Open and run the notebook
+
+1. Open the **whole `edu-predict` folder** in VS Code.
 2. Open `notebook/analysis.ipynb`.
-3. Select the `.venv` Python kernel.
-4. Run notebook cells **from top to bottom**.
-5. Inspect printed metrics, the confusion matrix, and the rendered tree in `results/tree_visualization.png`.
+3. Click **Select Kernel** and choose the Python interpreter inside `.venv`.
+4. **Important for the current notebook:** it loads data with `../data/StudentsPerformance.csv`. The notebook therefore needs its **current working directory to be `edu-predict/notebook`**. If it instead starts in the repository root, that relative path will fail. You can check with `Path.cwd()` in a notebook cell. If needed, change the working directory to the notebook folder *before* running all cells, or update the load path to use the project root.
+5. Choose **Restart Kernel → Run All** and run the cells **in order**, including the added model-training, evaluation, and plot-export cells.
+6. Verify the printed metrics and open the generated images in `results/`.
 
-If the notebook cannot locate the dataset or import project modules, make sure the notebook's working directory and Python import path match the paths used in its cells.
+> **Portability note:** The export cells create output paths using `Path.cwd()` and, when the working directory is called `notebook`, its parent directory. They do **not** hard-code the Mac username or absolute path. Run from the project root or the `notebook` folder for outputs to go into the expected `results/` directory. The input CSV path described above is more restrictive and requires special attention. 
+
+### Step 5 — Confirm expected results
+
+When using the same dataset, preprocessing, random split, and model parameters, the reference run produced:
+
+```text
+Decision Tree (5 features): 67.50%
+Decision Tree (8 features): 97.50%
+Dummy Baseline: 71.00%
+2D Decision Tree Accuracy: 95.50%
+Best test accuracy in depth comparison: 98.00% at depth 4
+```
+
+The actual run will also display the confusion matrix, class counts, and diagrams. If you downloaded a repository copy that already includes `results/`, you can view the exported artifacts without rerunning the notebook; running it will regenerate or overwrite them.
+
+### Troubleshooting
+
+- **`ModuleNotFoundError`**: verify that `.venv` is selected and dependencies are installed; check the project module import path for `model.decision_tree` and `utils.metrics`.
+- **`FileNotFoundError` for `../data/StudentsPerformance.csv`**: check the notebook working directory (Step 4).
+- **`NameError` for `X_train_full`, `DecisionTree`, etc.**: restart the kernel and run notebook cells from top to bottom.
+- **No plots in `results/`**: ensure all export cells have executed and the current directory is the project root or `notebook/`.
 
 ## Conclusions
 
@@ -209,6 +306,6 @@ If the notebook cannot locate the dataset or import project modules, make sure t
 
 - Handle nominal categories via explicit equality or subset-based categorical splits.
 - Compare different maximum tree depths on a validation split.
-- Visualize two-feature decision boundaries.
+- Extend the two-feature decision-boundary experiment with additional projections.
 - Add reusable tests for entropy, information gain, and tree prediction.
 - Evaluate genuine early-risk prediction using only information available **before** final exam scores are known.
