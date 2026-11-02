@@ -1,0 +1,40 @@
+if reading score <= 61.500:
+  if math score <= 60.500:
+    if writing score <= 65.500:
+      Predict class = 0
+    else:
+      if test preparation course <= 0.500:
+        Predict class = 0
+      else:
+        Predict class = 1
+  else:
+    if writing score <= 57.500:
+      if math score <= 67.500:
+        Predict class = 0
+      else:
+        if reading score <= 57.000:
+          Predict class = 0
+        else:
+          Predict class = 1
+    else:
+      Predict class = 1
+else:
+  if math score <= 53.500:
+    if reading score <= 66.500:
+      if writing score <= 67.500:
+        Predict class = 0
+      else:
+        if race/ethnicity <= 1.500:
+          Predict class = 1
+        else:
+          Predict class = 0
+    else:
+      Predict class = 1
+  else:
+    if reading score <= 62.500:
+      if math score <= 58.500:
+        Predict class = 0
+      else:
+        Predict class = 1
+    else:
+      Predict class = 1

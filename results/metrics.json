@@ -1,0 +1,18 @@
+{
+    "decision_tree_5_features_accuracy": 0.675,
+    "decision_tree_8_features_accuracy": 0.975,
+    "dummy_baseline_accuracy": 0.71,
+    "best_depth_test_accuracy": 0.98,
+    "best_depth": 4,
+    "decision_tree_2d_accuracy": 0.955,
+    "confusion_matrix": {
+        "true_negative": 56,
+        "false_positive": 2,
+        "false_negative": 3,
+        "true_positive": 139
+    },
+    "class_distribution": {
+        "fail_0": 293,
+        "pass_1": 707
+    }
+}
